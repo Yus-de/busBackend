@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  CASHIER
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentCollector {
+  CASHIER
+  BANK
+  ONLINE
+  MOBILE_BANKING
+  CARD
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String?   // Optional for Google OAuth users
+  name         String
+  phone        String?
+  role         UserRole  @default(USER)
+  emailVerified Boolean  @default(false)
+  googleId      String?   @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  bookings Booking[]
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model OTP {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  isUsed    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([email, code])
+  @@index([email])
+  @@map("otps")
+}
+
+model Bus {
+  id          String   @id @default(uuid())
+  busNumber   String   @unique
+  busName     String
+  totalSeats  Int
+  seatLayout  Json     // { rows: number, seatsPerRow: number, layout: "2x2" | "3x2" }
+  amenities   String[] // ["AC", "WiFi", "Charging", "Reclining"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schedules Schedule[]
+
+  @@map("buses")
+}
+
+model Route {
+  id          String   @id @default(uuid())
+  source      String
+  destination String
+  distance    Float?   // in km
+  duration    Int?     // in minutes
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schedules Schedule[]
+
+  @@unique([source, destination])
+  @@map("routes")
+}
+
+model Schedule {
+  id            String   @id @default(uuid())
+  busId         String
+  routeId       String
+  departureTime DateTime
+  arrivalTime   DateTime
+  price         Float
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bus   Bus   @relation(fields: [busId], references: [id], onDelete: Cascade)
+  route Route @relation(fields: [routeId], references: [id], onDelete: Cascade)
+
+  bookings Booking[]
+  seats   Seat[]
+
+  @@map("schedules")
+}
+
+model Seat {
+  id         String   @id @default(uuid())
+  scheduleId String
+  seatNumber String   // e.g., "1A", "2B", "12C"
+  isAvailable Boolean @default(true)
+  lockedUntil DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  schedule Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  bookings BookingSeat[]
+
+  @@unique([scheduleId, seatNumber])
+  @@map("seats")
+}
+
+model Booking {
+  id            String        @id @default(uuid())
+  userId        String
+  scheduleId    String
+  status        BookingStatus @default(PENDING)
+  totalAmount   Float
+  ticketNumber  String        @unique
+  expiresAt     DateTime?     // For PENDING bookings
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  schedule Schedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  seats    BookingSeat[]
+  payment  Payment?
+
+  @@map("bookings")
+}
+
+model BookingSeat {
+  id        String   @id @default(uuid())
+  bookingId String
+  seatId    String
+  createdAt DateTime @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  seat    Seat    @relation(fields: [seatId], references: [id], onDelete: Cascade)
+
+  @@unique([bookingId, seatId])
+  @@map("booking_seats")
+}
+
+model Payment {
+  id            String          @id @default(uuid())
+  bookingId     String          @unique
+  amount        Float
+  status        PaymentStatus   @default(PENDING)
+  paymentMethod String?         // "card", "upi", "wallet"
+  collector     PaymentCollector? // Who collected the payment
+  collectorId   String?         // ID of cashier/admin who confirmed (if collector is CASHIER)
+  transactionId String?         @unique
+  bankReference String?         // Bank transaction reference (if collector is BANK)
+  paidAt        DateTime?
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
