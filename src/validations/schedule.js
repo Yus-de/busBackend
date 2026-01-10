@@ -6,7 +6,6 @@ const createScheduleSchema = z.object({
     routeId: z.string().uuid('Invalid route ID'),
     departureTime: z.string().datetime('Invalid departure time'),
     arrivalTime: z.string().datetime('Invalid arrival time'),
-    price: z.number().positive('Price must be positive'),
   }).refine((data) => {
     const departure = new Date(data.departureTime);
     const arrival = new Date(data.arrivalTime);

@@ -25,8 +25,8 @@ const createBooking = async (userId, scheduleId, seatIds) => {
     // Lock seats (using transaction client)
     const lockUntil = await lockSeats(scheduleId, seatIds, tx);
 
-    // Calculate total amount
-    const totalAmount = schedule.price * seatIds.length;
+    // Calculate total amount (price comes from route now)
+    const totalAmount = (schedule.route?.price ?? 0) * seatIds.length;
 
     // Set booking expiration (same as seat lock)
     const expiresAt = lockUntil;

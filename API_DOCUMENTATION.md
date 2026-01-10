@@ -193,7 +193,8 @@ Authorization: Bearer <access_token>
         },
         "route": {
           "source": "New York",
-          "destination": "Boston"
+          "destination": "Boston",
+          "price": 45.99
         }
       },
       "seats": [
@@ -315,12 +316,12 @@ Search for routes by source, destination, and date.
       "destination": "Boston",
       "distance": 306.5,
       "duration": 240,
+      "price": 45.99,
       "schedules": [
         {
           "id": "uuid",
           "departureTime": "2024-01-15T08:00:00Z",
           "arrivalTime": "2024-01-15T12:00:00Z",
-          "price": 45.99,
           "bus": {
             "busNumber": "BUS-001",
             "busName": "Luxury Express"
@@ -344,7 +345,8 @@ Search for routes by source, destination, and date.
   "source": "New York",
   "destination": "Boston",
   "distance": 306.5,
-  "duration": 240
+  "duration": 240,
+  "price": 45.99
 }
 ```
 
@@ -376,8 +378,7 @@ Get schedules with optional filters.
   "busId": "uuid",
   "routeId": "uuid",
   "departureTime": "2024-01-15T08:00:00Z",
-  "arrivalTime": "2024-01-15T12:00:00Z",
-  "price": 45.99
+  "arrivalTime": "2024-01-15T12:00:00Z"
 }
 ```
 
@@ -396,18 +397,18 @@ Get seat availability for a schedule.
 {
   "success": true,
   "data": {
-    "schedule": {
-      "id": "uuid",
-      "departureTime": "2024-01-15T08:00:00Z",
-      "price": 45.99,
-      "bus": {
-        "busNumber": "BUS-001"
+      "schedule": {
+        "id": "uuid",
+        "departureTime": "2024-01-15T08:00:00Z",
+        "bus": {
+          "busNumber": "BUS-001"
+        },
+        "route": {
+          "source": "New York",
+          "destination": "Boston",
+          "price": 45.99
+        }
       },
-      "route": {
-        "source": "New York",
-        "destination": "Boston"
-      }
-    },
     "seats": [
       {
         "id": "uuid",

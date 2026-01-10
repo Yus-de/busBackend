@@ -21,6 +21,7 @@ async function seedData() {
         destination: 'Boston',
         distance: 306.5,
         duration: 240, // 4 hours
+        price: 45.99,
       },
     });
 
@@ -37,6 +38,7 @@ async function seedData() {
         destination: 'San Francisco',
         distance: 382.9,
         duration: 360, // 6 hours
+        price: 75.0,
       },
     });
 
@@ -91,7 +93,6 @@ async function seedData() {
         routeId: route1.id,
         departureTime: tomorrow,
         arrivalTime: arrival1,
-        price: 45.99,
         isActive: true,
       },
     });

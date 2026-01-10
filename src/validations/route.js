@@ -6,6 +6,17 @@ const createRouteSchema = z.object({
     destination: z.string().min(1, 'Destination is required'),
     distance: z.number().positive().optional(),
     duration: z.number().int().positive().optional(),
+    price: z.number().positive('Price must be positive'),
+  }),
+});
+
+const updateRouteSchema = z.object({
+  body: z.object({
+    source: z.string().min(1, 'Source is required').optional(),
+    destination: z.string().min(1, 'Destination is required').optional(),
+    distance: z.number().positive().optional(),
+    duration: z.number().int().positive().optional(),
+    price: z.number().positive('Price must be positive').optional(),
   }),
 });
 
@@ -20,5 +31,6 @@ const searchRoutesSchema = z.object({
 module.exports = {
   createRouteSchema,
   searchRoutesSchema,
+  updateRouteSchema,
 };
 

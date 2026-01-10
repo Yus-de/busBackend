@@ -4,7 +4,7 @@ const { NotFoundError, AppError } = require('../utils/errors');
 
 const createSchedule = async (req, res, next) => {
   try {
-    const { busId, routeId, departureTime, arrivalTime, price } = req.body;
+    const { busId, routeId, departureTime, arrivalTime } = req.body;
 
     // Verify bus and route exist
     const [bus, route] = await Promise.all([
@@ -27,7 +27,6 @@ const createSchedule = async (req, res, next) => {
         routeId,
         departureTime: new Date(departureTime),
         arrivalTime: new Date(arrivalTime),
-        price,
       },
       include: {
         bus: true,

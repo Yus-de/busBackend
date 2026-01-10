@@ -4,13 +4,14 @@ const { NotFoundError } = require('../utils/errors');
 
 const createRoute = async (req, res, next) => {
   try {
-    const { source, destination, distance, duration } = req.body;
+    const { source, destination, distance, duration, price } = req.body;
     const route = await prisma.route.create({
       data: {
         source,
         destination,
         distance,
         duration,
+        price,
       },
     });
     successResponse(res, route, 'Route created successfully', 201);
@@ -109,10 +110,43 @@ const getRouteById = async (req, res, next) => {
   }
 };
 
+const updateRoute = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { source, destination, distance, duration, price } = req.body;
+
+    const route = await prisma.route.findUnique({ where: { id } });
+    if (!route) {
+      throw new NotFoundError('Route');
+    }
+
+    const updated = await prisma.route.update({
+      where: { id },
+      data: {
+        ...(source !== undefined ? { source } : {}),
+        ...(destination !== undefined ? { destination } : {}),
+        ...(distance !== undefined ? { distance } : {}),
+        ...(duration !== undefined ? { duration } : {}),
+        ...(price !== undefined ? { price } : {}),
+      },
+      include: {
+        schedules: {
+          include: { bus: true },
+        },
+      },
+    });
+
+    successResponse(res, updated, 'Route updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createRoute,
   searchRoutes,
   getRoutes,
   getRouteById,
+  updateRoute,
 };
 

@@ -71,7 +71,7 @@ const getSeatAvailability = async (scheduleId) => {
       route: schedule.route,
       departureTime: schedule.departureTime,
       arrivalTime: schedule.arrivalTime,
-      price: schedule.price,
+      price: schedule.route?.price ?? 0,
     },
     seats: availability,
   };

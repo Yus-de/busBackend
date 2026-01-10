@@ -102,6 +102,7 @@ model Route {
   destination String
   distance    Float?   // in km
   duration    Int?     // in minutes
+  price       Float    @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -117,7 +118,6 @@ model Schedule {
   routeId       String
   departureTime DateTime
   arrivalTime   DateTime
-  price         Float
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
