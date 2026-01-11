@@ -31,7 +31,7 @@ const generateTokens = (userId) => {
 
 const saveRefreshToken = async (userId, token) => {
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
   await prisma.refreshToken.create({
     data: {
@@ -45,28 +45,27 @@ const saveRefreshToken = async (userId, token) => {
 const register = async (userData) => {
   const { email, password, name, phone } = userData;
 
-  // Check if user exists
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-  });
+  // 1. Check if user exists
+  const existingUser = await prisma.user.findUnique({ where: { email } });
 
-  // Prevent duplicate registrations
   if (existingUser) {
+    // If user is already verified, they must login
     if (existingUser.emailVerified) {
-      throw new AppError('User already exists and email is verified. Please login instead.', 400);
-    } else {
-      // User exists but email is not verified - tell them to use resend OTP
-      throw new AppError(
-        'An account with this email already exists but is not verified. Please use the resend OTP endpoint to receive a new verification code.',
-        400
-      );
+      throw new AppError('An account with this email already exists. Please login.', 400);
     }
+    
+    // IF USER EXISTS BUT IS NOT VERIFIED: 
+    // We update their info (password/name) so they can "restart" registration if they made a mistake
+    const hashedPassword = await hashPassword(password);
+    const updatedUser = await prisma.user.update({
+      where: { email },
+      data: { name, phone, password: hashedPassword },
+    });
+    return { user: updatedUser, message: 'Existing unverified account updated. Please verify your email.' };
   }
 
-  // Hash password
+  // 2. Create new user (emailVerified defaults to false)
   const hashedPassword = await hashPassword(password);
-
-  // Create user (email not verified yet)
   const user = await prisma.user.create({
     data: {
       email,
@@ -82,27 +81,19 @@ const register = async (userData) => {
       phone: true,
       role: true,
       emailVerified: true,
-      createdAt: true,
     },
   });
 
-  // OTP will be sent separately via verify-email endpoint
-  // Don't generate tokens here - user needs to verify email first
-
-  return {
-    user,
-    message: 'Registration successful. Please verify your email.',
-  };
+  return { user, message: 'Registration successful. Please verify your email.' };
 };
 
-// Verify email and complete registration
 const verifyEmailAndCompleteRegistration = async (email, otp) => {
   const otpService = require('./otpService');
 
-  // Verify OTP
+  // 1. Verify OTP (will throw error if invalid)
   await otpService.verifyOTP(email, otp);
 
-  // Update user email as verified
+  // 2. Update existing user to verified
   const user = await prisma.user.update({
     where: { email },
     data: { emailVerified: true },
@@ -113,11 +104,10 @@ const verifyEmailAndCompleteRegistration = async (email, otp) => {
       phone: true,
       role: true,
       emailVerified: true,
-      createdAt: true,
     },
   });
 
-  // Generate tokens after email verification
+  // 3. Generate tokens only AFTER verification
   const { accessToken, refreshToken } = generateTokens(user.id);
   await saveRefreshToken(user.id, refreshToken);
 
@@ -129,33 +119,24 @@ const verifyEmailAndCompleteRegistration = async (email, otp) => {
 };
 
 const login = async (email, password) => {
-  // Find user
-  const user = await prisma.user.findUnique({
-    where: { email },
-  });
+  const user = await prisma.user.findUnique({ where: { email } });
 
-  if (!user) {
+  if (!user || !user.password) {
     throw new UnauthorizedError('Invalid credentials');
   }
 
-  // Check if email is verified
+  // 1. Check if verified
   if (!user.emailVerified) {
     throw new AppError('Please verify your email before logging in', 403);
   }
 
-  // Check if user has password (not Google OAuth user)
-  if (!user.password) {
-    throw new AppError('Please use Google login for this account', 400);
-  }
-
-  // Verify password
+  // 2. Verify password
   const isPasswordValid = await comparePassword(password, user.password);
-
   if (!isPasswordValid) {
     throw new UnauthorizedError('Invalid credentials');
   }
 
-  // Generate tokens
+  // 3. Generate tokens
   const { accessToken, refreshToken } = generateTokens(user.id);
   await saveRefreshToken(user.id, refreshToken);
 
@@ -175,10 +156,8 @@ const login = async (email, password) => {
 
 const refreshAccessToken = async (refreshToken) => {
   try {
-    // Verify refresh token
     const decoded = jwt.verify(refreshToken, jwtConfig.refreshSecret);
 
-    // Check if token exists in database
     const tokenRecord = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
       include: { user: true },
@@ -188,7 +167,6 @@ const refreshAccessToken = async (refreshToken) => {
       throw new UnauthorizedError('Invalid or expired refresh token');
     }
 
-    // Generate new access token
     const accessToken = jwt.sign(
       { userId: decoded.userId },
       jwtConfig.accessSecret,
@@ -197,9 +175,6 @@ const refreshAccessToken = async (refreshToken) => {
 
     return { accessToken };
   } catch (error) {
-    if (error instanceof UnauthorizedError) {
-      throw error;
-    }
     throw new UnauthorizedError('Invalid refresh token');
   }
 };
@@ -217,4 +192,3 @@ module.exports = {
   refreshAccessToken,
   logout,
 };
-
