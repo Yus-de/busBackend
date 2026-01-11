@@ -24,6 +24,9 @@ const app = express();
 app.use(helmet());
 app.use(cors());
 
+// ADD THIS LINE HERE (Important for Render/Heroku/AWS)
+app.set('trust proxy', 1); 
+
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
