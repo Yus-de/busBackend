@@ -3,29 +3,31 @@ const otpService = require('../services/otpService');
 const googleAuthService = require('../services/googleAuthService');
 const { successResponse } = require('../utils/response');
 
-const register = async (req, res, next) => {
-  try {
-    const { email, password, name, phone } = req.body;
-    const result = await authService.register({ email, password, name, phone });
-    
-    // Send OTP after registration (don't fail registration if email fails in dev mode)
-    try {
-      await otpService.createAndSendOTP(email);
-    } catch (otpError) {
-      // In development, continue even if email fails (OTP is logged to console)
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('OTP sending failed, but continuing in development mode');
-      } else {
-        // In production, re-throw the error
-        throw otpError;
-      }
-    }
-    
-    successResponse(res, result, 'User registered successfully. Please verify your email.', 201);
-  } catch (error) {
-    next(error);
+const register = async ({ email, password, name, phone }) => {
+  // 1. Check if user already exists
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    throw new AppError('User already exists', 400);
   }
+
+  // 2. Hash password
+  const hashedPassword = await bcrypt.hash(password, 10);
+
+  // 3. CREATE user with emailVerified as FALSE
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password: hashedPassword,
+      name,
+      phone,
+      emailVerified: false, // Important
+    },
+  });
+
+  // Return user without token (they aren't verified yet)
+  return { user };
 };
+
 
 const login = async (req, res, next) => {
   try {
@@ -75,6 +77,28 @@ const verifyEmail = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+// 1. Verify the OTP (This should throw error if invalid/expired)
+  await otpService.verifyOTP(email, otp);
+
+  // 2. Find the user
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) {
+    throw new AppError('User not found', 404);
+  }
+
+  // 3. UPDATE the existing user instead of creating a new one
+  const updatedUser = await prisma.user.update({
+    where: { email },
+    data: { emailVerified: true },
+  });
+
+  // 4. GENERATE TOKENS NOW (Registration is now complete)
+  const accessToken = jwt.sign({ id: updatedUser.id }, process.env.JWT_SECRET, { expiresIn: '1d' });
+
+  return {
+    user: updatedUser,
+    accessToken,
+  };
 };
 
 const resendOTP = async (req, res, next) => {
