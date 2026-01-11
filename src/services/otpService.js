@@ -1,5 +1,6 @@
 const prisma = require('../config/database');
 const nodemailer = require('nodemailer');
+const { Resend } = require('resend'); // Change this
 const otpGenerator = require('otp-generator');
 const { AppError } = require('../utils/errors');
 
