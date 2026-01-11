@@ -6,33 +6,15 @@ const { successResponse } = require('../utils/response');
 const register = async (req, res, next) => {
   try {
     const { email, password, name, phone } = req.body;
-    
-    // 1. Create the user in the database (Unverified)
     const result = await authService.register({ email, password, name, phone });
     
-    // 2. Send the OTP
     try {
       await otpService.createAndSendOTP(email);
     } catch (otpError) {
-      console.error('OTP Error:', otpError.message);
-      // In dev, we don't crash if email fails
       if (process.env.NODE_ENV !== 'development') throw otpError;
     }
 
     successResponse(res, result, 'User registered successfully. Please verify your email.', 201);
-  } catch (error) {
-    next(error);
-  }
-};
-
-const verifyEmail = async (req, res, next) => {
-  try {
-    const { email, otp } = req.body;
-    
-    // Calls service to check OTP and UPDATE the existing user to Verified
-    const result = await authService.verifyEmailAndCompleteRegistration(email, otp);
-    
-    successResponse(res, result, 'Email verified successfully');
   } catch (error) {
     next(error);
   }
@@ -48,6 +30,27 @@ const login = async (req, res, next) => {
   }
 };
 
+const verifyEmail = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const result = await authService.verifyEmailAndCompleteRegistration(email, otp);
+    successResponse(res, result, 'Email verified successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ADDED THIS FUNCTION (Was missing, causing your crash)
+const sendOTP = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await otpService.createAndSendOTP(email);
+    successResponse(res, result, 'OTP sent to your email');
+  } catch (error) {
+    next(error);
+  }
+};
+
 const resendOTP = async (req, res, next) => {
   try {
     const { email } = req.body;
@@ -58,21 +61,21 @@ const resendOTP = async (req, res, next) => {
   }
 };
 
-const logout = async (req, res, next) => {
-  try {
-    const { refreshToken } = req.body;
-    await authService.logout(refreshToken);
-    successResponse(res, null, 'Logout successful');
-  } catch (error) {
-    next(error);
-  }
-};
-
 const refresh = async (req, res, next) => {
   try {
     const { refreshToken } = req.body;
     const result = await authService.refreshAccessToken(refreshToken);
     successResponse(res, result, 'Token refreshed successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+const logout = async (req, res, next) => {
+  try {
+    const { refreshToken } = req.body;
+    await authService.logout(refreshToken);
+    successResponse(res, null, 'Logout successful');
   } catch (error) {
     next(error);
   }
@@ -91,9 +94,10 @@ const googleLogin = async (req, res, next) => {
 module.exports = {
   register,
   login,
+  verifyEmail,
+  sendOTP,    // <--- Ensure this is exported
+  resendOTP,
   refresh,
   logout,
-  verifyEmail,
-  resendOTP,
   googleLogin,
 };
