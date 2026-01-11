@@ -21,6 +21,10 @@ const createTransporter = () => {
   });
 };
 
+// Initialize Resend with your API Key
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+
 // Generate OTP code
 const generateOTP = () => {
   return otpGenerator.generate(6, {
@@ -32,47 +36,50 @@ const generateOTP = () => {
 
 // Send OTP via email
 const sendOTP = async (email, code) => {
-  // Development mode check
-  if (process.env.NODE_ENV === 'development' && !process.env.SMTP_USER) {
-    console.log(`📧 DEV MODE OTP for ${email}: ${code}`);
+  // Development mode fallback
+  if (process.env.NODE_ENV === 'development' && !process.env.RESEND_API_KEY) {
+    console.log(`📧 [DEV] OTP for ${email}: ${code}`);
     return true;
   }
 
   try {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`⚠️ SMTP missing. OTP for ${email}: ${code}`);
-        return true;
-      }
-      throw new AppError('Email service not configured.', 500);
+    if (!process.env.RESEND_API_KEY) {
+      throw new AppError('Resend API Key is missing.', 500);
     }
 
-    console.log(`Step A: Creating transporter for ${email}...`);
-    const transporter = createTransporter();
-    
-    const mailOptions = {
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: email,
-      subject: 'Email Verification OTP - Busly',
-      html: `<h1>Your code is ${code}</h1>`, // Simplified for testing
-    };
+    console.log(`Sending Resend email to ${email}...`);
 
-    console.log(`Step B: Sending email via ${process.env.SMTP_HOST}...`);
-    
-    // This is where it usually hangs. The timeout we added above will fix this.
-    await transporter.sendMail(mailOptions);
-    
-    console.log(`Step C: Email sent successfully to ${email}`);
+    const { data, error } = await resend.emails.send({
+      from: 'Busly <onboarding@resend.dev>', // Use this default for testing
+      to: email,
+      subject: 'Verification Code - Busly',
+      html: `
+        <div style="font-family: sans-serif; padding: 20px;">
+          <h2>Confirm your email</h2>
+          <p>Your 6-digit verification code is:</p>
+          <h1 style="color: #2563eb; letter-spacing: 5px;">${code}</h1>
+          <p>This code expires in 10 minutes.</p>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend Error:', error);
+      throw new Error(error.message);
+    }
+
+    console.log('Email sent successfully via Resend:', data.id);
     return true;
   } catch (error) {
-    console.error('❌ SMTP ERROR:', error.message);
+    console.error('Error in sendOTP:', error.message);
     
+    // Fallback for dev if API fails
     if (process.env.NODE_ENV === 'development') {
       console.log(`Fallback: OTP for ${email} is ${code}`);
       return true;
     }
     
-    throw new AppError(`Email failed: ${error.message}`, 500);
+    throw new AppError('Failed to send verification email.', 500);
   }
 };
 
