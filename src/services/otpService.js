@@ -4,17 +4,20 @@ const otpGenerator = require('otp-generator');
 const { AppError } = require('../utils/errors');
 
 // Email transporter configuration
+// Email transporter configuration
 const createTransporter = () => {
-  // For development, you can use Gmail or other SMTP services
-  // For production, use services like SendGrid, AWS SES, etc.
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT || '587'),
-    secure: false, // true for 465, false for other ports
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: false, 
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    // ADD THESE TIMEOUTS TO STOP THE SPINNING
+    connectionTimeout: 10000, // 10 seconds
+    greetingTimeout: 10000,
+    socketTimeout: 15000,
   });
 };
 
@@ -29,77 +32,47 @@ const generateOTP = () => {
 
 // Send OTP via email
 const sendOTP = async (email, code) => {
-  // Development mode: Log OTP to console instead of sending email
+  // Development mode check
   if (process.env.NODE_ENV === 'development' && !process.env.SMTP_USER) {
-    console.log('\n========================================');
-    console.log('📧 OTP FOR DEVELOPMENT MODE');
-    console.log('========================================');
-    console.log(`Email: ${email}`);
-    console.log(`OTP Code: ${code}`);
-    console.log('========================================\n');
+    console.log(`📧 DEV MODE OTP for ${email}: ${code}`);
     return true;
   }
 
   try {
-    // Check if SMTP is configured
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      // In development, log OTP instead of failing
       if (process.env.NODE_ENV === 'development') {
-        console.log('\n========================================');
-        console.log('⚠️  SMTP not configured - OTP logged instead');
-        console.log('========================================');
-        console.log(`Email: ${email}`);
-        console.log(`OTP Code: ${code}`);
-        console.log('========================================\n');
+        console.log(`⚠️ SMTP missing. OTP for ${email}: ${code}`);
         return true;
       }
-      throw new AppError('Email service not configured. Please configure SMTP settings.', 500);
+      throw new AppError('Email service not configured.', 500);
     }
 
+    console.log(`Step A: Creating transporter for ${email}...`);
     const transporter = createTransporter();
-
+    
     const mailOptions = {
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: email,
-      subject: 'Email Verification OTP - Bus Booking',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #333;">Email Verification</h2>
-          <p>Thank you for registering with Bus Booking System!</p>
-          <p>Your verification code is:</p>
-          <div style="background-color: #f4f4f4; padding: 20px; text-align: center; margin: 20px 0;">
-            <h1 style="color: #007bff; margin: 0; font-size: 32px; letter-spacing: 5px;">${code}</h1>
-          </div>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you didn't request this code, please ignore this email.</p>
-          <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
-          <p style="color: #666; font-size: 12px;">This is an automated message, please do not reply.</p>
-        </div>
-      `,
+      subject: 'Email Verification OTP - Busly',
+      html: `<h1>Your code is ${code}</h1>`, // Simplified for testing
     };
 
+    console.log(`Step B: Sending email via ${process.env.SMTP_HOST}...`);
+    
+    // This is where it usually hangs. The timeout we added above will fix this.
     await transporter.sendMail(mailOptions);
+    
+    console.log(`Step C: Email sent successfully to ${email}`);
     return true;
   } catch (error) {
-    console.error('Error sending OTP email:', error);
+    console.error('❌ SMTP ERROR:', error.message);
     
-    // In development, log OTP instead of failing
     if (process.env.NODE_ENV === 'development') {
-      console.log('\n========================================');
-      console.log('⚠️  Email sending failed - OTP logged instead');
-      console.log('========================================');
-      console.log(`Email: ${email}`);
-      console.log(`OTP Code: ${code}`);
-      console.log('Error:', error.message);
-      console.log('========================================\n');
+      console.log(`Fallback: OTP for ${email} is ${code}`);
       return true;
     }
     
-    // In production, throw error
-    throw new AppError(
-      'Failed to send verification email. Please check your email configuration or contact support.',
-      500
-    );
+    throw new AppError(`Email failed: ${error.message}`, 500);
   }
 };
 
