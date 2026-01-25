@@ -7,6 +7,7 @@ const { createRouteSchema, searchRoutesSchema, updateRouteSchema } = require('..
 
 router.post('/', authenticate, authorize('ADMIN'), validate(createRouteSchema), routeController.createRoute);
 router.get('/search', validate(searchRoutesSchema), routeController.searchRoutes);
+router.get('/locations', routeController.getRouteLocations);
 router.get('/', routeController.getRoutes);
 router.get('/:id', routeController.getRouteById);
 router.put('/:id', authenticate, authorize('ADMIN'), validate(updateRouteSchema), routeController.updateRoute);

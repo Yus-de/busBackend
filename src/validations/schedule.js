@@ -22,6 +22,7 @@ const getSchedulesSchema = z.object({
     busId: z.string().uuid('Invalid bus ID').optional(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be in YYYY-MM-DD format').optional(),
     isActive: z.string().transform((val) => val === 'true').optional(),
+    includePast: z.string().transform((val) => val === 'true').optional(),
   }),
 });
 

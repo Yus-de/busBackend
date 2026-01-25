@@ -142,11 +142,30 @@ const updateRoute = async (req, res, next) => {
   }
 };
 
+const getRouteLocations = async (req, res, next) => {
+  try {
+    const locations = await prisma.route.findMany({
+      select: {
+        source: true,
+        destination: true,
+      },
+    });
+
+    const sources = [...new Set(locations.map((r) => r.source))];
+    const destinations = [...new Set(locations.map((r) => r.destination))];
+
+    successResponse(res, { sources, destinations }, 'Route locations retrieved successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createRoute,
   searchRoutes,
   getRoutes,
   getRouteById,
   updateRoute,
+  getRouteLocations,
 };
 

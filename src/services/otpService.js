@@ -10,7 +10,7 @@ const createTransporter = () => {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '465'),
-    secure: false, 
+    secure: false,
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
@@ -22,8 +22,14 @@ const createTransporter = () => {
   });
 };
 
-// Initialize Resend with your API Key
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize Resend client only when needed
+let resend = null;
+const getResendClient = () => {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+};
 
 
 // Generate OTP code
@@ -50,7 +56,12 @@ const sendOTP = async (email, code) => {
 
     console.log(`Sending Resend email to ${email}...`);
 
-    const { data, error } = await resend.emails.send({
+    const resendClient = getResendClient();
+    if (!resendClient) {
+      throw new AppError('Resend API Key is missing.', 500);
+    }
+
+    const { data, error } = await resendClient.emails.send({
       from: 'Busly <onboarding@resend.dev>', // Use this default for testing
       to: email,
       subject: 'Verification Code - Busly',
@@ -73,13 +84,13 @@ const sendOTP = async (email, code) => {
     return true;
   } catch (error) {
     console.error('Error in sendOTP:', error.message);
-    
+
     // Fallback for dev if API fails
     if (process.env.NODE_ENV === 'development') {
       console.log(`Fallback: OTP for ${email} is ${code}`);
       return true;
     }
-    
+
     throw new AppError('Failed to send verification email.', 500);
   }
 };
