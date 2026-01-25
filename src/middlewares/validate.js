@@ -4,11 +4,17 @@ const { ValidationError } = require('../utils/errors');
 const validate = (schema) => {
   return (req, res, next) => {
     try {
-      schema.parse({
+      const result = schema.parse({
         body: req.body,
         query: req.query,
         params: req.params,
       });
+
+      // Update req objects with parsed/transformed data
+      if (result.body) req.body = result.body;
+      if (result.query) req.query = result.query;
+      if (result.params) req.params = result.params;
+
       next();
     } catch (error) {
       if (error instanceof ZodError) {

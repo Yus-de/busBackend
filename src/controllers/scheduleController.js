@@ -85,23 +85,17 @@ const getSchedules = async (req, res, next) => {
       const nextDay = new Date(targetDate);
       nextDay.setDate(nextDay.getDate() + 1);
 
-      // If we don't want past schedules, ensure start time is at least now
-      let startTime = targetDate;
-      if (req.query.includePast !== 'true') {
-        const now = new Date();
-        if (now > startTime) {
-          startTime = now;
-        }
-      }
-
       where.departureTime = {
-        gte: startTime,
+        gte: targetDate,
         lt: nextDay,
       };
-    } else if (req.query.includePast !== 'true') {
-      // By default, only show future schedules
+    } else if (req.query.includePast !== true) {
+      // By default, show all of today's schedules and future ones
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+
       where.departureTime = {
-        gte: new Date(),
+        gte: startOfToday,
       };
     }
 
