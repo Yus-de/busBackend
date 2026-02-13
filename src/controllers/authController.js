@@ -7,7 +7,7 @@ const register = async (req, res, next) => {
   try {
     const { email, password, name, phone } = req.body;
     const result = await authService.register({ email, password, name, phone });
-    
+
     try {
       await otpService.createAndSendOTP(email);
     } catch (otpError) {
@@ -29,6 +29,27 @@ const login = async (req, res, next) => {
     next(error);
   }
 };
+
+const appLogin = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const result = await authService.appLogin(email, password);
+    successResponse(res, result, 'App login successful');
+  } catch (error) {
+    next(error);
+  }
+};
+
+const dashboardLogin = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const result = await authService.dashboardLogin(email, password);
+    successResponse(res, result, 'Dashboard login successful');
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 const verifyEmail = async (req, res, next) => {
   try {
@@ -94,7 +115,10 @@ const googleLogin = async (req, res, next) => {
 module.exports = {
   register,
   login,
+  appLogin,
+  dashboardLogin,
   verifyEmail,
+
   sendOTP,    // <--- Ensure this is exported
   resendOTP,
   refresh,

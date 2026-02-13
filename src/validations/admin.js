@@ -2,8 +2,8 @@ const { z } = require('zod');
 
 const getRevenueReportSchema = z.object({
   query: z.object({
-    startDate: z.string().datetime().optional(),
-    endDate: z.string().datetime().optional(),
+    startDate: z.coerce.date().optional(),
+    endDate: z.coerce.date().optional(),
   }),
 });
 

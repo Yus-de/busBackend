@@ -3,6 +3,7 @@ module.exports = {
     USER: 'USER',
     ADMIN: 'ADMIN',
     CASHIER: 'CASHIER',
+    OPERATION: 'OPERATION',
   },
   BOOKING_STATUS: {
     PENDING: 'PENDING',

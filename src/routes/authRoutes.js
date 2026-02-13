@@ -15,6 +15,9 @@ const { authLimiter } = require('../middlewares/rateLimiter');
 
 router.post('/register', authLimiter, validate(registerSchema), authController.register);
 router.post('/login', authLimiter, validate(loginSchema), authController.login);
+router.post('/app/login', authLimiter, validate(loginSchema), authController.appLogin);
+router.post('/dashboard/login', authLimiter, validate(loginSchema), authController.dashboardLogin);
+
 router.post('/refresh', validate(refreshTokenSchema), authController.refresh);
 router.post('/logout', validate(refreshTokenSchema), authController.logout);
 router.post('/send-otp', authLimiter, validate(sendOTPSchema), authController.sendOTP);

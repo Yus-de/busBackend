@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const logger = require('./middlewares/logger');
 const { apiLimiter } = require('./middlewares/rateLimiter');
 const errorHandler = require('./middlewares/errorHandler');
 
@@ -25,7 +26,7 @@ app.use(helmet());
 app.use(cors());
 
 // ADD THIS LINE HERE (Important for Render/Heroku/AWS)
-app.set('trust proxy', 1); 
+app.set('trust proxy', 1);
 
 // Body parser
 app.use(express.json());
@@ -33,7 +34,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Logging
 if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+  app.use(logger);
 } else {
   app.use(morgan('combined'));
 }

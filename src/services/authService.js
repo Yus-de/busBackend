@@ -3,6 +3,8 @@ const jwt = require('jsonwebtoken');
 const prisma = require('../config/database');
 const jwtConfig = require('../config/jwt');
 const { UnauthorizedError, AppError } = require('../utils/errors');
+const { USER_ROLES } = require('../utils/constants');
+
 
 const hashPassword = async (password) => {
   const salt = await bcrypt.genSalt(10);
@@ -53,7 +55,7 @@ const register = async (userData) => {
     if (existingUser.emailVerified) {
       throw new AppError('An account with this email already exists. Please login.', 400);
     }
-    
+
     // IF USER EXISTS BUT IS NOT VERIFIED: 
     // We update their info (password/name) so they can "restart" registration if they made a mistake
     const hashedPassword = await hashPassword(password);
@@ -154,6 +156,24 @@ const login = async (email, password) => {
   };
 };
 
+const appLogin = async (email, password) => {
+  const result = await login(email, password);
+  if (result.user.role !== USER_ROLES.USER) {
+    throw new UnauthorizedError('Access denied. This login is for app users only.');
+  }
+  return result;
+};
+
+const dashboardLogin = async (email, password) => {
+  const result = await login(email, password);
+  const staffRoles = [USER_ROLES.ADMIN, USER_ROLES.CASHIER, USER_ROLES.OPERATION];
+  if (!staffRoles.includes(result.user.role)) {
+    throw new UnauthorizedError('Access denied. This login is for dashboard users only.');
+  }
+  return result;
+};
+
+
 const refreshAccessToken = async (refreshToken) => {
   try {
     const decoded = jwt.verify(refreshToken, jwtConfig.refreshSecret);
@@ -189,6 +209,8 @@ module.exports = {
   register,
   verifyEmailAndCompleteRegistration,
   login,
+  appLogin,
+  dashboardLogin,
   refreshAccessToken,
   logout,
 };

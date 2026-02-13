@@ -29,11 +29,19 @@ const errorHandler = (err, req, res, next) => {
   if (err.code === 'P2002') {
     const message = 'Duplicate field value entered';
     error = new AppError(message, 400);
-  }
-
-  if (err.code === 'P2025') {
+  } else if (err.code === 'P2025') {
     const message = 'Record not found';
     error = new AppError(message, 404);
+  } else if (
+    (err.code && err.code.startsWith('P')) ||
+    (err.name && err.name.startsWith('Prisma')) ||
+    (err.message && (err.message.includes('prisma') || err.message.includes('invocation')))
+  ) {
+    let message = 'Database operation failed. Please try again later.';
+    if (err.message && err.message.includes('Server has closed the connection')) {
+      message = 'Database connection error. Please try again later.';
+    }
+    error = new AppError(message, 500);
   }
 
   // JWT errors
