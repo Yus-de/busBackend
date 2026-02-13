@@ -2,9 +2,9 @@ const { AppError, ValidationError } = require('../utils/errors');
 const { errorResponse } = require('../utils/response');
 
 const errorHandler = (err, req, res, next) => {
-  // Log error
+  // Log error message only (hiding file directories/stack traces)
   if (process.env.NODE_ENV === 'development') {
-    console.error('Error:', err);
+    console.error('Error:', err.message || err);
   }
 
   // Validation errors - check for ValidationError instance first
