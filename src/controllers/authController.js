@@ -112,6 +112,26 @@ const googleLogin = async (req, res, next) => {
   }
 };
 
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const result = await authService.forgotPassword(email);
+    successResponse(res, result, 'Password reset OTP sent to your email');
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    const result = await authService.resetPassword(email, otp, newPassword);
+    successResponse(res, result, 'Password reset successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -124,4 +144,6 @@ module.exports = {
   refresh,
   logout,
   googleLogin,
-};
+  forgotPassword,
+  resetPassword,
+};

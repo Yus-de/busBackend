@@ -10,6 +10,8 @@ const {
   verifyEmailSchema,
   resendOTPSchema,
   googleLoginSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
 } = require('../validations/auth');
 const { authLimiter } = require('../middlewares/rateLimiter');
 
@@ -24,6 +26,9 @@ router.post('/send-otp', authLimiter, validate(sendOTPSchema), authController.se
 router.post('/verify-otp', authController.verifyEmail);
 router.post('/resend-otp', authLimiter, validate(resendOTPSchema), authController.resendOTP);
 router.post('/google', authLimiter, validate(googleLoginSchema), authController.googleLogin);
+
+router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
+router.post('/reset-password', authLimiter, validate(resetPasswordSchema), authController.resetPassword);
 
 module.exports = router;
 

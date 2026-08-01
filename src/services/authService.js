@@ -205,6 +205,35 @@ const logout = async (refreshToken) => {
   });
 };
 
+const forgotPassword = async (email) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+  
+  if (!user) {
+    throw new AppError('User with this email does not exist', 404);
+  }
+
+  const otpService = require('./otpService');
+  return await otpService.createAndSendOTP(email);
+};
+
+const resetPassword = async (email, otp, newPassword) => {
+  const otpService = require('./otpService');
+  
+  // 1. Verify OTP (will throw error if invalid)
+  await otpService.verifyOTP(email, otp);
+
+  // 2. Hash new password
+  const hashedPassword = await hashPassword(newPassword);
+
+  // 3. Update user password
+  await prisma.user.update({
+    where: { email },
+    data: { password: hashedPassword },
+  });
+
+  return { message: 'Password reset successfully' };
+};
+
 module.exports = {
   register,
   verifyEmailAndCompleteRegistration,
@@ -213,4 +242,6 @@ module.exports = {
   dashboardLogin,
   refreshAccessToken,
   logout,
+  forgotPassword,
+  resetPassword,
 };
