@@ -82,6 +82,20 @@ model OTP {
   @@map("otps")
 }
 
+model VerificationToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  otpId     String
+  email     String
+  isUsed    Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([email])
+  @@map("verification_tokens")
+}
+
 model Bus {
   id          String   @id @default(uuid())
   busNumber   String   @unique

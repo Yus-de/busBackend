@@ -2,6 +2,8 @@ const prisma = require('../config/database');
 const nodemailer = require('nodemailer');
 const { Resend } = require('resend'); // Change this
 const otpGenerator = require('otp-generator');
+const jwt = require('jsonwebtoken');
+const jwtConfig = require('../config/jwt');
 const { AppError } = require('../utils/errors');
 
 // Email transporter configuration
@@ -131,8 +133,10 @@ const createAndSendOTP = async (email) => {
   };
 };
 
-// Verify OTP
+// Verify OTP and generate a verification token
 const verifyOTP = async (email, code) => {
+  console.log('Verifying OTP for email:', email, 'code:', code);
+
   const otp = await prisma.oTP.findFirst({
     where: {
       email,
@@ -143,6 +147,8 @@ const verifyOTP = async (email, code) => {
       createdAt: 'desc',
     },
   });
+
+  console.log('OTP found:', otp ? { id: otp.id, isUsed: otp.isUsed, expiresAt: otp.expiresAt } : 'null');
 
   if (!otp) {
     throw new AppError('Invalid or expired OTP', 400);
@@ -158,12 +164,100 @@ const verifyOTP = async (email, code) => {
   }
 
   // Mark OTP as used
-  await prisma.oTP.update({
+  const updatedOtp = await prisma.oTP.update({
     where: { id: otp.id },
     data: { isUsed: true },
   });
 
-  return true;
+  console.log('OTP marked as used:', updatedOtp);
+
+  // Generate a verification token that can be used for password reset
+  const verificationToken = jwt.sign(
+    { email, otpId: otp.id },
+    jwtConfig.accessSecret,
+    { expiresIn: '15m' } // Token expires in 15 minutes
+  );
+
+  // Calculate token expiration (15 minutes from now)
+  const tokenExpiresAt = new Date();
+  tokenExpiresAt.setMinutes(tokenExpiresAt.getMinutes() + 15);
+
+  // Store verification token in database
+  await prisma.verificationToken.create({
+    data: {
+      token: verificationToken,
+      otpId: otp.id,
+      email: email,
+      expiresAt: tokenExpiresAt,
+    },
+  });
+
+  console.log('Verification token stored in database for OTP ID:', otp.id);
+
+  return {
+    valid: true,
+    verificationToken,
+    message: 'OTP verified successfully. Use the verification token to reset your password.'
+  };
+};
+
+// Verify the verification token (used in reset password)
+const verifyToken = async (token) => {
+  try {
+    // Decode the JWT token
+    const decoded = jwt.verify(token, jwtConfig.accessSecret);
+
+    console.log('Token decoded successfully:', { email: decoded.email, otpId: decoded.otpId });
+
+    // Check if verification token exists in database
+    const verificationToken = await prisma.verificationToken.findUnique({
+      where: { token: token },
+    });
+
+    console.log('Verification token in DB:', verificationToken ? {
+      email: verificationToken.email,
+      isUsed: verificationToken.isUsed,
+      expiresAt: verificationToken.expiresAt
+    } : 'null');
+
+    if (!verificationToken) {
+      throw new AppError('Invalid verification token', 400);
+    }
+
+    // Check if token has already been used (prevents reuse)
+    if (verificationToken.isUsed) {
+      throw new AppError('Verification token has already been used', 400);
+    }
+
+    // Check if token has expired
+    if (verificationToken.expiresAt < new Date()) {
+      throw new AppError('Verification token has expired', 400);
+    }
+
+    // Verify email matches
+    if (verificationToken.email !== decoded.email) {
+      throw new AppError('Invalid verification token - email mismatch', 400);
+    }
+
+    // Mark token as used to prevent reuse
+    await prisma.verificationToken.update({
+      where: { id: verificationToken.id },
+      data: { isUsed: true },
+    });
+
+    console.log('Verification token marked as used');
+
+    return { valid: true, email: decoded.email };
+  } catch (error) {
+    console.error('Token verification error:', error.message);
+    if (error.name === 'JsonWebTokenError') {
+      throw new AppError('Invalid verification token', 400);
+    }
+    if (error.name === 'TokenExpiredError') {
+      throw new AppError('Verification token has expired', 400);
+    }
+    throw error;
+  }
 };
 
 // Resend OTP
@@ -202,6 +296,7 @@ const cleanupExpiredOTPs = async () => {
 module.exports = {
   createAndSendOTP,
   verifyOTP,
+  verifyToken,
   resendOTP,
   cleanupExpiredOTPs,
 };

@@ -61,6 +61,17 @@ const verifyEmail = async (req, res, next) => {
   }
 };
 
+const verifyOTP = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const otpService = require('../services/otpService');
+    const result = await otpService.verifyOTP(email, otp);
+    successResponse(res, result, 'OTP verified successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ADDED THIS FUNCTION (Was missing, causing your crash)
 const sendOTP = async (req, res, next) => {
   try {
@@ -124,8 +135,8 @@ const forgotPassword = async (req, res, next) => {
 
 const resetPassword = async (req, res, next) => {
   try {
-    const { email, otp, newPassword } = req.body;
-    const result = await authService.resetPassword(email, otp, newPassword);
+    const { email, verificationToken, newPassword } = req.body;
+    const result = await authService.resetPassword(email, verificationToken, newPassword);
     successResponse(res, result, 'Password reset successfully');
   } catch (error) {
     next(error);
@@ -138,6 +149,7 @@ module.exports = {
   appLogin,
   dashboardLogin,
   verifyEmail,
+  verifyOTP,
 
   sendOTP,    // <--- Ensure this is exported
   resendOTP,
@@ -146,4 +158,4 @@ module.exports = {
   googleLogin,
   forgotPassword,
   resetPassword,
-};
+};

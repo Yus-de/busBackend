@@ -92,8 +92,8 @@ const register = async (userData) => {
 const verifyEmailAndCompleteRegistration = async (email, otp) => {
   const otpService = require('./otpService');
 
-  // 1. Verify OTP (will throw error if invalid)
-  await otpService.verifyOTP(email, otp);
+  // 1. Verify OTP (this consumes it and returns verification token)
+  const otpResult = await otpService.verifyOTP(email, otp);
 
   // 2. Update existing user to verified
   const user = await prisma.user.update({
@@ -207,7 +207,7 @@ const logout = async (refreshToken) => {
 
 const forgotPassword = async (email) => {
   const user = await prisma.user.findUnique({ where: { email } });
-  
+
   if (!user) {
     throw new AppError('User with this email does not exist', 404);
   }
@@ -216,18 +216,27 @@ const forgotPassword = async (email) => {
   return await otpService.createAndSendOTP(email);
 };
 
-const resetPassword = async (email, otp, newPassword) => {
+const resetPassword = async (email, verificationToken, newPassword) => {
   const otpService = require('./otpService');
-  
-  // 1. Verify OTP (will throw error if invalid)
-  await otpService.verifyOTP(email, otp);
+
+  // 1. Verify the verification token (this validates the OTP was already verified)
+  const tokenData = await otpService.verifyToken(verificationToken);
+
+  // SECURITY: Use the email from the verified token, not from request body
+  // This ensures the token can only be used for the email it was generated for
+  const verifiedEmail = tokenData.email;
+
+  // Verify the email in the request matches the email in the token
+  if (verifiedEmail !== email) {
+    throw new AppError('Email mismatch. Token is not valid for this email.', 400);
+  }
 
   // 2. Hash new password
   const hashedPassword = await hashPassword(newPassword);
 
-  // 3. Update user password
+  // 3. Update user password using the verified email
   await prisma.user.update({
-    where: { email },
+    where: { email: verifiedEmail },
     data: { password: hashedPassword },
   });
 

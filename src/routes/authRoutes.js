@@ -38,7 +38,8 @@ router.post('/dashboard/login', dashboardLoginLimiter, validate(loginSchema), au
 router.post('/refresh', refreshLimiter, validate(refreshTokenSchema), authController.refresh);
 router.post('/logout', logoutLimiter, validate(refreshTokenSchema), authController.logout);
 router.post('/send-otp', sendOtpLimiter, validate(sendOTPSchema), authController.sendOTP);
-router.post('/verify-otp', verifyOtpLimiter, validate(verifyEmailSchema), authController.verifyEmail);
+router.post('/verify-otp', verifyOtpLimiter, validate(verifyEmailSchema), authController.verifyOTP);
+router.post('/verify-email', verifyOtpLimiter, validate(verifyEmailSchema), authController.verifyEmail);
 router.post('/resend-otp', resendOtpLimiter, validate(resendOTPSchema), authController.resendOTP);
 router.post('/google', googleLoginLimiter, validate(googleLoginSchema), authController.googleLogin);
 
