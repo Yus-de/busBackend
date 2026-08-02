@@ -4,7 +4,6 @@ const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const logger = require('./middlewares/logger');
-const { apiLimiter } = require('./middlewares/rateLimiter');
 const errorHandler = require('./middlewares/errorHandler');
 
 // Routes
@@ -38,9 +37,6 @@ if (process.env.NODE_ENV === 'development') {
 } else {
   app.use(morgan('combined'));
 }
-
-// Rate limiting
-app.use('/api/', apiLimiter);
 
 // Health check
 app.get('/health', (req, res) => {

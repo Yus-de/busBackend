@@ -1,4 +1,4 @@
-# 📚 API Documentation
+d# 📚 API Documentation
 
 Complete API reference for the Bus Ticket Booking Backend.
 
@@ -127,6 +127,119 @@ Invalidate refresh token.
 ```json
 {
   "refreshToken": "refresh_token"
+}
+```
+
+### Send OTP
+
+**POST** `/api/auth/send-otp`
+
+Send a 6-digit OTP to an email address (used for email verification during registration).
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "OTP sent to your email",
+  "data": {
+    "message": "OTP sent to your email",
+    "expiresIn": 600
+  }
+}
+```
+
+---
+
+### Verify OTP
+
+**POST** `/api/auth/verify-otp`
+
+Verify a 6-digit OTP. This completes email verification during registration and returns authentication tokens.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "otp": "123456"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Email verified successfully",
+  "data": {
+    "user": {
+      "id": "uuid",
+      "email": "user@example.com",
+      "name": "John Doe",
+      "phone": "+1234567890",
+      "role": "USER",
+      "emailVerified": true
+    },
+    "accessToken": "jwt_token",
+    "refreshToken": "refresh_token"
+  }
+}
+```
+
+**Error Responses:**
+- `400` - Invalid or expired OTP
+- `404` - User not found
+- `429` - Too many requests (rate limited)
+
+---
+
+### Resend OTP
+
+**POST** `/api/auth/resend-otp`
+
+Resend a 6-digit OTP to an email address.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+---
+
+### Forgot Password
+
+**POST** `/api/auth/forgot-password`
+
+Send a password reset OTP to an email address.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+---
+
+### Reset Password
+
+**POST** `/api/auth/reset-password`
+
+Reset password using a valid OTP.
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "otp": "123456",
+  "newPassword": "newpassword123"
 }
 ```
 
@@ -641,8 +754,14 @@ All errors follow this format:
 
 ## Rate Limiting
 
-- Authentication endpoints: 5 requests per 15 minutes
-- Other endpoints: 100 requests per 15 minutes
+Rate limits are applied per client IP address (using `req.ip`, which respects the `trust proxy` setting for correct IP resolution behind reverse proxies).
+
+- **Development** (`NODE_ENV=development`):
+  - Authentication endpoints: 1,000 requests per 15 minutes
+  - Other endpoints: 10,000 requests per 15 minutes
+- **Production** (`NODE_ENV=production`):
+  - Authentication endpoints: 5 requests per 15 minutes
+  - Other endpoints: 100 requests per 15 minutes
 
 ---
 

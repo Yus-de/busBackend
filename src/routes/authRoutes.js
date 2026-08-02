@@ -13,22 +13,36 @@ const {
   forgotPasswordSchema,
   resetPasswordSchema,
 } = require('../validations/auth');
-const { authLimiter } = require('../middlewares/rateLimiter');
+const {
+  registerLimiter,
+  loginLimiter,
+  appLoginLimiter,
+  dashboardLoginLimiter,
+  refreshLimiter,
+  logoutLimiter,
+  sendOtpLimiter,
+  verifyOtpLimiter,
+  resendOtpLimiter,
+  googleLoginLimiter,
+  forgotPasswordLimiter,
+  resetPasswordLimiter,
+} = require('../middlewares/rateLimiter');
 
-router.post('/register', authLimiter, validate(registerSchema), authController.register);
-router.post('/login', authLimiter, validate(loginSchema), authController.login);
-router.post('/app/login', authLimiter, validate(loginSchema), authController.appLogin);
-router.post('/dashboard/login', authLimiter, validate(loginSchema), authController.dashboardLogin);
+// Each endpoint has its own rate limiter with a separate counter and a
+// different limit value.
+router.post('/register', registerLimiter, validate(registerSchema), authController.register);
+router.post('/login', loginLimiter, validate(loginSchema), authController.login);
+router.post('/app/login', appLoginLimiter, validate(loginSchema), authController.appLogin);
+router.post('/dashboard/login', dashboardLoginLimiter, validate(loginSchema), authController.dashboardLogin);
 
-router.post('/refresh', validate(refreshTokenSchema), authController.refresh);
-router.post('/logout', validate(refreshTokenSchema), authController.logout);
-router.post('/send-otp', authLimiter, validate(sendOTPSchema), authController.sendOTP);
-router.post('/verify-otp', authController.verifyEmail);
-router.post('/resend-otp', authLimiter, validate(resendOTPSchema), authController.resendOTP);
-router.post('/google', authLimiter, validate(googleLoginSchema), authController.googleLogin);
+router.post('/refresh', refreshLimiter, validate(refreshTokenSchema), authController.refresh);
+router.post('/logout', logoutLimiter, validate(refreshTokenSchema), authController.logout);
+router.post('/send-otp', sendOtpLimiter, validate(sendOTPSchema), authController.sendOTP);
+router.post('/verify-otp', verifyOtpLimiter, validate(verifyEmailSchema), authController.verifyEmail);
+router.post('/resend-otp', resendOtpLimiter, validate(resendOTPSchema), authController.resendOTP);
+router.post('/google', googleLoginLimiter, validate(googleLoginSchema), authController.googleLogin);
 
-router.post('/forgot-password', authLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
-router.post('/reset-password', authLimiter, validate(resetPasswordSchema), authController.resetPassword);
+router.post('/forgot-password', forgotPasswordLimiter, validate(forgotPasswordSchema), authController.forgotPassword);
+router.post('/reset-password', resetPasswordLimiter, validate(resetPasswordSchema), authController.resetPassword);
 
 module.exports = router;
-
