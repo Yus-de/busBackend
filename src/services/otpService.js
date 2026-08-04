@@ -263,8 +263,8 @@ const verifyToken = async (token) => {
 // Resend OTP
 const resendOTP = async (email, requireUser = true) => {
   if (requireUser) {
-    // Check if email exists and is not verified
-    const user = await prisma.user.findUnique({
+    // Check if email exists and is not verified (only for app users)
+    const user = await prisma.appUser.findUnique({
       where: { email },
     });
 

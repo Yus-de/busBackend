@@ -42,7 +42,7 @@ const createPayment = async (bookingId, paymentMethod = 'card') => {
 
 const confirmPayment = async (paymentId, transactionId, collector, collectorId, bankReference) => {
   const generateTransactionId = require('../utils/generateTransactionId');
-  
+
   return await prisma.$transaction(async (tx) => {
     const payment = await tx.payment.findUnique({
       where: { id: paymentId },
@@ -65,7 +65,7 @@ const confirmPayment = async (paymentId, transactionId, collector, collectorId, 
       // Generate unique transaction ID based on collector type
       const prefix = collector === 'BANK' ? 'BANK' : collector === 'ONLINE' ? 'ONLINE' : 'CASH';
       finalTransactionId = generateTransactionId(prefix);
-      
+
       // Ensure uniqueness (retry if collision, though very unlikely)
       let attempts = 0;
       while (attempts < 5) {
@@ -230,7 +230,7 @@ const getAllTransactions = async (filters = {}) => {
   const transactionsWithCashier = await Promise.all(
     transactions.map(async (transaction) => {
       if (transaction.collectorId && transaction.collector === 'CASHIER') {
-        const cashier = await prisma.user.findUnique({
+        const cashier = await prisma.dashboardUser.findUnique({
           where: { id: transaction.collectorId },
           select: {
             id: true,
@@ -303,7 +303,7 @@ const getCashierTransactions = async (cashierId, filters = {}) => {
   const transactionsWithCashier = await Promise.all(
     transactions.map(async (transaction) => {
       if (transaction.collectorId && transaction.collector === 'CASHIER') {
-        const cashier = await prisma.user.findUnique({
+        const cashier = await prisma.dashboardUser.findUnique({
           where: { id: transaction.collectorId },
           select: {
             id: true,

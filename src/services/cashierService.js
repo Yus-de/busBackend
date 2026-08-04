@@ -9,7 +9,7 @@ const hashPassword = async (password) => {
 
 // Get all cashiers
 const getAllCashiers = async () => {
-  return await prisma.user.findMany({
+  return await prisma.dashboardUser.findMany({
     where: {
       role: 'CASHIER',
     },
@@ -31,7 +31,7 @@ const getAllCashiers = async () => {
 
 // Get cashier by ID
 const getCashierById = async (cashierId) => {
-  const cashier = await prisma.user.findFirst({
+  const cashier = await prisma.dashboardUser.findFirst({
     where: {
       id: cashierId,
       role: 'CASHIER',
@@ -60,7 +60,7 @@ const createCashier = async (cashierData) => {
   const { email, password, name, phone } = cashierData;
 
   // Check if user already exists
-  const existingUser = await prisma.user.findUnique({
+  const existingUser = await prisma.dashboardUser.findUnique({
     where: { email },
   });
 
@@ -72,7 +72,7 @@ const createCashier = async (cashierData) => {
   const hashedPassword = await hashPassword(password);
 
   // Create cashier
-  const cashier = await prisma.user.create({
+  const cashier = await prisma.dashboardUser.create({
     data: {
       email,
       password: hashedPassword,
@@ -98,7 +98,7 @@ const createCashier = async (cashierData) => {
 // Update cashier
 const updateCashier = async (cashierId, updateData) => {
   // Check if cashier exists
-  const existingCashier = await prisma.user.findFirst({
+  const existingCashier = await prisma.dashboardUser.findFirst({
     where: {
       id: cashierId,
       role: 'CASHIER',
@@ -111,7 +111,7 @@ const updateCashier = async (cashierId, updateData) => {
 
   // If email is being updated, check for duplicates
   if (updateData.email && updateData.email !== existingCashier.email) {
-    const emailExists = await prisma.user.findUnique({
+    const emailExists = await prisma.dashboardUser.findUnique({
       where: { email: updateData.email },
     });
 
@@ -126,7 +126,7 @@ const updateCashier = async (cashierId, updateData) => {
   }
 
   // Update cashier
-  const cashier = await prisma.user.update({
+  const cashier = await prisma.dashboardUser.update({
     where: { id: cashierId },
     data: updateData,
     select: {
@@ -146,7 +146,7 @@ const updateCashier = async (cashierId, updateData) => {
 // Delete cashier
 const deleteCashier = async (cashierId) => {
   // Check if cashier exists
-  const cashier = await prisma.user.findFirst({
+  const cashier = await prisma.dashboardUser.findFirst({
     where: {
       id: cashierId,
       role: 'CASHIER',
@@ -158,7 +158,7 @@ const deleteCashier = async (cashierId) => {
   }
 
   // Delete cashier
-  await prisma.user.delete({
+  await prisma.dashboardUser.delete({
     where: { id: cashierId },
   });
 
@@ -167,7 +167,7 @@ const deleteCashier = async (cashierId) => {
 
 // Get cashier statistics
 const getCashierStats = async (cashierId) => {
-  const cashier = await prisma.user.findFirst({
+  const cashier = await prisma.dashboardUser.findFirst({
     where: {
       id: cashierId,
       role: 'CASHIER',

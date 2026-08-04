@@ -28,31 +28,43 @@ const verifyGoogleToken = async (idToken) => {
 };
 
 // Generate JWT tokens
-const generateTokens = (userId) => {
+const generateTokens = (userId, userType = 'app') => {
   const accessToken = jwt.sign(
     { userId },
     jwtConfig.accessSecret,
     { expiresIn: jwtConfig.accessExpires }
   );
 
+  // App users get non-expiring refresh tokens, dashboard users get expiring ones
+  const refreshExpires = userType === 'app'
+    ? jwtConfig.appRefreshExpires
+    : jwtConfig.dashboardRefreshExpires;
+
   const refreshToken = jwt.sign(
     { userId },
     jwtConfig.refreshSecret,
-    { expiresIn: jwtConfig.refreshExpires }
+    { expiresIn: refreshExpires }
   );
 
   return { accessToken, refreshToken };
 };
 
 // Save refresh token
-const saveRefreshToken = async (userId, token) => {
+const saveRefreshToken = async (userId, token, userType = 'app') => {
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+
+  // App users get non-expiring refresh tokens (100 years), dashboard users get 7 days
+  if (userType === 'app') {
+    expiresAt.setFullYear(expiresAt.getFullYear() + 100); // 100 years = effectively non-expiring
+  } else {
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days for dashboard users
+  }
 
   await prisma.refreshToken.create({
     data: {
       token,
       userId,
+      userType,
       expiresAt,
     },
   });
@@ -68,20 +80,20 @@ const loginWithGoogle = async (idToken) => {
   }
 
   // Check if user exists by Google ID
-  let user = await prisma.user.findUnique({
+  let user = await prisma.appUser.findUnique({
     where: { googleId: googleUser.googleId },
   });
-
-  // If not found by Google ID, check by email
   if (!user) {
-    user = await prisma.user.findUnique({
+    user = await prisma.appUser.findUnique({
       where: { email: googleUser.email },
     });
-
-    // If user exists but doesn't have Google ID, link it
     if (user) {
-      user = await prisma.user.update({
+      user = await prisma.appUser.update({
         where: { id: user.id },
+      });
+    }
+    if (!user) {
+      user = await prisma.appUser.create({
         data: {
           googleId: googleUser.googleId,
           emailVerified: true, // Google emails are already verified
@@ -100,7 +112,7 @@ const loginWithGoogle = async (idToken) => {
 
   // Create new user if doesn't exist
   if (!user) {
-    user = await prisma.user.create({
+    user = await prisma.appUser.create({
       data: {
         email: googleUser.email,
         name: googleUser.name,
@@ -113,15 +125,14 @@ const loginWithGoogle = async (idToken) => {
         email: true,
         name: true,
         phone: true,
-        role: true,
         emailVerified: true,
       },
     });
   }
 
-  // Generate tokens
-  const { accessToken, refreshToken } = generateTokens(user.id);
-  await saveRefreshToken(user.id, refreshToken);
+  // Generate tokens (Google OAuth users are app users)
+  const { accessToken, refreshToken } = generateTokens(user.id, 'app');
+  await saveRefreshToken(user.id, refreshToken, 'app');
 
   return {
     user,

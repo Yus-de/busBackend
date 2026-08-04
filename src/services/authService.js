@@ -15,17 +15,22 @@ const comparePassword = async (password, hashedPassword) => {
   return bcrypt.compare(password, hashedPassword);
 };
 
-const generateTokens = (userId) => {
+const generateTokens = (userId, userType = 'app') => {
   const accessToken = jwt.sign(
     { userId },
     jwtConfig.accessSecret,
     { expiresIn: jwtConfig.accessExpires }
   );
 
+  // App users get non-expiring refresh tokens, dashboard users get expiring ones
+  const refreshExpires = userType === 'app'
+    ? jwtConfig.appRefreshExpires
+    : jwtConfig.dashboardRefreshExpires;
+
   const refreshToken = jwt.sign(
     { userId },
     jwtConfig.refreshSecret,
-    { expiresIn: jwtConfig.refreshExpires }
+    { expiresIn: refreshExpires }
   );
 
   return { accessToken, refreshToken };
@@ -33,7 +38,13 @@ const generateTokens = (userId) => {
 
 const saveRefreshToken = async (userId, token, userType = 'app') => {
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
+
+  // App users get non-expiring refresh tokens (100 years), dashboard users get 7 days
+  if (userType === 'app') {
+    expiresAt.setFullYear(expiresAt.getFullYear() + 100); // 100 years = effectively non-expiring
+  } else {
+    expiresAt.setDate(expiresAt.getDate() + 7); // 7 days for dashboard users
+  }
 
   await prisma.refreshToken.create({
     data: {
