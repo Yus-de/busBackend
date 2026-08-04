@@ -39,10 +39,26 @@ enum PaymentCollector {
   CARD
 }
 
-model User {
+model AppUser {
   id           String    @id @default(uuid())
   email        String    @unique
-  password     String?   // Optional for Google OAuth users
+  password     String?
+  name         String
+  phone        String?
+  emailVerified Boolean  @default(false)
+  googleId      String?   @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  bookings Booking[]
+
+  @@map("app_users")
+}
+
+model DashboardUser {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  password     String?
   name         String
   phone        String?
   role         UserRole  @default(USER)
@@ -51,21 +67,19 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  bookings Booking[]
-  refreshTokens RefreshToken[]
-
-  @@map("users")
+  @@map("dashboard_users")
 }
 
 model RefreshToken {
   id        String   @id @default(uuid())
   token     String   @unique
   userId    String
+  userType   String   // "app" or "dashboard"
   expiresAt DateTime
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
+  @@index([token])
+  @@index([userId, userType])
   @@map("refresh_tokens")
 }
 
@@ -173,7 +187,7 @@ model Booking {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  user     User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     AppUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
   schedule Schedule     @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
   seats    BookingSeat[]
   payment  Payment?

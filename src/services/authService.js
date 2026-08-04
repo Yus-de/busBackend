@@ -31,7 +31,7 @@ const generateTokens = (userId) => {
   return { accessToken, refreshToken };
 };
 
-const saveRefreshToken = async (userId, token) => {
+const saveRefreshToken = async (userId, token, userType = 'app') => {
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiration
 
@@ -39,6 +39,7 @@ const saveRefreshToken = async (userId, token) => {
     data: {
       token,
       userId,
+      userType,
       expiresAt,
     },
   });
@@ -47,28 +48,28 @@ const saveRefreshToken = async (userId, token) => {
 const register = async (userData) => {
   const { email, password, name, phone } = userData;
 
-  // 1. Check if user exists
-  const existingUser = await prisma.user.findUnique({ where: { email } });
+  // 1. Check if user exists in AppUser
+  const existingAppUser = await prisma.appUser.findUnique({ where: { email } });
 
-  if (existingUser) {
+  if (existingAppUser) {
     // If user is already verified, they must login
-    if (existingUser.emailVerified) {
+    if (existingAppUser.emailVerified) {
       throw new AppError('An account with this email already exists. Please login.', 400);
     }
 
     // IF USER EXISTS BUT IS NOT VERIFIED: 
     // We update their info (password/name) so they can "restart" registration if they made a mistake
     const hashedPassword = await hashPassword(password);
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await prisma.appUser.update({
       where: { email },
       data: { name, phone, password: hashedPassword },
     });
     return { user: updatedUser, message: 'Existing unverified account updated. Please verify your email.' };
   }
 
-  // 2. Create new user (emailVerified defaults to false)
+  // 2. Create new app user (emailVerified defaults to false - requires OTP verification)
   const hashedPassword = await hashPassword(password);
-  const user = await prisma.user.create({
+  const user = await prisma.appUser.create({
     data: {
       email,
       password: hashedPassword,
@@ -81,7 +82,6 @@ const register = async (userData) => {
       email: true,
       name: true,
       phone: true,
-      role: true,
       emailVerified: true,
     },
   });
@@ -95,8 +95,15 @@ const verifyEmailAndCompleteRegistration = async (email, otp) => {
   // 1. Verify OTP (this consumes it and returns verification token)
   const otpResult = await otpService.verifyOTP(email, otp);
 
-  // 2. Update existing user to verified
-  const user = await prisma.user.update({
+  // 2. Check if user exists in AppUser only (dashboard users don't need email verification)
+  const user = await prisma.appUser.findUnique({ where: { email } });
+
+  if (!user) {
+    throw new AppError('User not found or already verified. Dashboard users do not require email verification.', 404);
+  }
+
+  // 3. Update app user to verified
+  const updatedUser = await prisma.appUser.update({
     where: { email },
     data: { emailVerified: true },
     select: {
@@ -104,31 +111,37 @@ const verifyEmailAndCompleteRegistration = async (email, otp) => {
       email: true,
       name: true,
       phone: true,
-      role: true,
       emailVerified: true,
     },
   });
 
-  // 3. Generate tokens only AFTER verification
-  const { accessToken, refreshToken } = generateTokens(user.id);
-  await saveRefreshToken(user.id, refreshToken);
+  // 4. Generate tokens only AFTER verification
+  const { accessToken, refreshToken } = generateTokens(updatedUser.id);
+  await saveRefreshToken(updatedUser.id, refreshToken, 'app');
 
   return {
-    user,
+    user: updatedUser,
     accessToken,
     refreshToken,
   };
 };
 
-const login = async (email, password) => {
-  const user = await prisma.user.findUnique({ where: { email } });
+const login = async (email, password, userType = 'app') => {
+  let user;
+
+  // Try to find user in AppUser or DashboardUser based on userType
+  if (userType === 'app') {
+    user = await prisma.appUser.findUnique({ where: { email } });
+  } else {
+    user = await prisma.dashboardUser.findUnique({ where: { email } });
+  }
 
   if (!user || !user.password) {
     throw new UnauthorizedError('Invalid credentials');
   }
 
-  // 1. Check if verified
-  if (!user.emailVerified) {
+  // 1. Check if verified (only for app users)
+  if (userType === 'app' && !user.emailVerified) {
     throw new AppError('Please verify your email before logging in', 403);
   }
 
@@ -140,32 +153,35 @@ const login = async (email, password) => {
 
   // 3. Generate tokens
   const { accessToken, refreshToken } = generateTokens(user.id);
-  await saveRefreshToken(user.id, refreshToken);
+  await saveRefreshToken(user.id, refreshToken, userType);
+
+  const userResponse = {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    phone: user.phone,
+    emailVerified: user.emailVerified,
+  };
+
+  // Add role for dashboard users
+  if (userType === 'dashboard') {
+    userResponse.role = user.role;
+  }
 
   return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      phone: user.phone,
-      role: user.role,
-      emailVerified: user.emailVerified,
-    },
+    user: userResponse,
     accessToken,
     refreshToken,
   };
 };
 
 const appLogin = async (email, password) => {
-  const result = await login(email, password);
-  if (result.user.role !== USER_ROLES.USER) {
-    throw new UnauthorizedError('Access denied. This login is for app users only.');
-  }
+  const result = await login(email, password, 'app');
   return result;
 };
 
 const dashboardLogin = async (email, password) => {
-  const result = await login(email, password);
+  const result = await login(email, password, 'dashboard');
   const staffRoles = [USER_ROLES.ADMIN, USER_ROLES.CASHIER, USER_ROLES.OPERATION];
   if (!staffRoles.includes(result.user.role)) {
     throw new UnauthorizedError('Access denied. This login is for dashboard users only.');
@@ -180,11 +196,28 @@ const refreshAccessToken = async (refreshToken) => {
 
     const tokenRecord = await prisma.refreshToken.findUnique({
       where: { token: refreshToken },
-      include: { user: true },
     });
 
     if (!tokenRecord || tokenRecord.expiresAt < new Date()) {
       throw new UnauthorizedError('Invalid or expired refresh token');
+    }
+
+    // Verify user still exists based on userType
+    let userExists = false;
+    if (tokenRecord.userType === 'app') {
+      const user = await prisma.appUser.findUnique({
+        where: { id: decoded.userId },
+      });
+      userExists = !!user;
+    } else {
+      const user = await prisma.dashboardUser.findUnique({
+        where: { id: decoded.userId },
+      });
+      userExists = !!user;
+    }
+
+    if (!userExists) {
+      throw new UnauthorizedError('Invalid refresh token - user not found');
     }
 
     const accessToken = jwt.sign(
@@ -206,10 +239,11 @@ const logout = async (refreshToken) => {
 };
 
 const forgotPassword = async (email) => {
-  const user = await prisma.user.findUnique({ where: { email } });
+  // OTP and password reset only for app users
+  const appUser = await prisma.appUser.findUnique({ where: { email } });
 
-  if (!user) {
-    throw new AppError('User with this email does not exist', 404);
+  if (!appUser) {
+    throw new AppError('User with this email does not exist or is a dashboard user. Dashboard users cannot reset password via OTP.', 404);
   }
 
   const otpService = require('./otpService');
@@ -223,7 +257,6 @@ const resetPassword = async (email, verificationToken, newPassword) => {
   const tokenData = await otpService.verifyToken(verificationToken);
 
   // SECURITY: Use the email from the verified token, not from request body
-  // This ensures the token can only be used for the email it was generated for
   const verifiedEmail = tokenData.email;
 
   // Verify the email in the request matches the email in the token
@@ -234,8 +267,14 @@ const resetPassword = async (email, verificationToken, newPassword) => {
   // 2. Hash new password
   const hashedPassword = await hashPassword(newPassword);
 
-  // 3. Update user password using the verified email
-  await prisma.user.update({
+  // 3. Update app user password only (dashboard users don't use OTP reset)
+  const appUser = await prisma.appUser.findUnique({ where: { email: verifiedEmail } });
+
+  if (!appUser) {
+    throw new AppError('User not found or is a dashboard user. Only app users can reset password via OTP.', 404);
+  }
+
+  await prisma.appUser.update({
     where: { email: verifiedEmail },
     data: { password: hashedPassword },
   });
