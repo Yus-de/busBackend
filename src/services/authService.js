@@ -136,8 +136,13 @@ const login = async (email, password, userType = 'app') => {
     user = await prisma.dashboardUser.findUnique({ where: { email } });
   }
 
-  if (!user || !user.password) {
-    throw new UnauthorizedError('Invalid credentials');
+  if (!user) {
+    const userTypeName = userType === 'app' ? 'App' : 'Dashboard';
+    throw new UnauthorizedError(`Invalid credentials - ${userTypeName} user not found`);
+  }
+
+  if (!user.password) {
+    throw new UnauthorizedError('Invalid credentials - no password set');
   }
 
   // 1. Check if verified (only for app users)
@@ -148,7 +153,7 @@ const login = async (email, password, userType = 'app') => {
   // 2. Verify password
   const isPasswordValid = await comparePassword(password, user.password);
   if (!isPasswordValid) {
-    throw new UnauthorizedError('Invalid credentials');
+    throw new UnauthorizedError('Invalid credentials - wrong password');
   }
 
   // 3. Generate tokens
