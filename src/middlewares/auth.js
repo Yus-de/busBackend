@@ -15,21 +15,40 @@ const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, jwtConfig.accessSecret);
 
-    const user = await prisma.user.findUnique({
+    // Try to find user in AppUser or DashboardUser
+    let user = await prisma.appUser.findUnique({
       where: { id: decoded.userId },
       select: {
         id: true,
         email: true,
         name: true,
-        role: true,
+        // AppUser has no role field
       },
     });
+
+    let userType = 'app';
+
+    // If not found in AppUser, check DashboardUser
+    if (!user) {
+      user = await prisma.dashboardUser.findUnique({
+        where: { id: decoded.userId },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          role: true,
+        },
+      });
+      userType = 'dashboard';
+    }
 
     if (!user) {
       throw new UnauthorizedError('User not found');
     }
 
+    // Attach user and userType to request
     req.user = user;
+    req.userType = userType;
     next();
   } catch (error) {
     if (error instanceof UnauthorizedError) {

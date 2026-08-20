@@ -4,17 +4,12 @@ const { successResponse } = require('../utils/response');
 
 const getMe = async (req, res, next) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        phone: true,
-        role: true,
-        createdAt: true,
-      },
-    });
+    // req.user is already populated by authenticate middleware
+    // Just return it with additional fields based on user type
+    const user = {
+      ...req.user,
+      userType: req.userType || 'app',
+    };
     successResponse(res, user, 'User profile retrieved successfully');
   } catch (error) {
     next(error);

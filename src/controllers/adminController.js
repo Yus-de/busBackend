@@ -79,13 +79,14 @@ const getRevenueReport = async (req, res, next) => {
 
 const getAllUsers = async (req, res, next) => {
   try {
-    const users = await prisma.user.findMany({
+    // Get all app users
+    const appUsers = await prisma.appUser.findMany({
       select: {
         id: true,
         email: true,
         name: true,
         phone: true,
-        role: true,
+        emailVerified: true,
         createdAt: true,
         _count: {
           select: {
@@ -95,6 +96,34 @@ const getAllUsers = async (req, res, next) => {
       },
       orderBy: { createdAt: 'desc' },
     });
+
+    // Get all dashboard users
+    const dashboardUsers = await prisma.dashboardUser.findMany({
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        phone: true,
+        role: true,
+        emailVerified: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Combine and format users
+    const users = [
+      ...appUsers.map(user => ({
+        ...user,
+        role: 'USER',
+        userType: 'app',
+      })),
+      ...dashboardUsers.map(user => ({
+        ...user,
+        userType: 'dashboard',
+      })),
+    ];
+
     successResponse(res, users, 'Users retrieved successfully');
   } catch (error) {
     next(error);
